@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -123,3 +124,6 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+=======
+123^^
+>>>>>>> de7914a752a77b278b255ae33810ad6624cab5a8

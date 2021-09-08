@@ -13,21 +13,16 @@
 int main(int argc, char **argv) {
   // socket variables
   int server_socket;
-  // int client_socket;
-
   struct sockaddr_in server_addr;
-  // struct sockaddr_in client_addr;
-  // socklen_t client_addr_size;
 
   char buff_rcv[BUFF_SIZE];
   char buff_snd[BUFF_SIZE];
   // ~socket variables
 
   // epoll variables
-  int server_epoll_fd = -1;
-  int get_event_count = 0;
+  int epoll_fd = -1;
   struct epoll_event server_event;
-  struct epoll_event *client_events;
+  struct epoll_event *events;
   // ~epoll variables
 
   server_socket = socket(PF_INET, SOCK_STREAM, 0);
@@ -55,8 +50,8 @@ int main(int argc, char **argv) {
   }
 
   // server epoll create
-  // if ((server_epoll_fd = epoll_create1(100)) == -1) {
-  if ((server_epoll_fd = epoll_create(100)) == -1) {
+  // if ((epoll_fd = epoll_create1(100)) == -1) {
+  if ((epoll_fd = epoll_create1(0)) == -1) {
     printf("server epoll 생성 실패\n");
     exit(1);
   }
@@ -64,27 +59,27 @@ int main(int argc, char **argv) {
   //
   server_event.events = EPOLLIN | EPOLLRDHUP;
   server_event.data.fd = server_socket;
-  epoll_ctl(server_epoll_fd, EPOLL_CTL_ADD, server_socket, &server_event);
+  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &server_event);
 
-  // alloc client_events
-  client_events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * EPOLL_SIZE);
+  // alloc events
+  events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * EPOLL_SIZE);
 
   while (1) {
     printf("\nStart Epoll Wait\n");
-    get_event_count = epoll_wait(server_epoll_fd, client_events, EPOLL_SIZE, -1);
+    int event_count = epoll_wait(epoll_fd, events, EPOLL_SIZE, -1);
 
-    if (get_event_count == -1) {
+    if (event_count == -1) {
       printf("실패\n");
       exit(1);
     }
-    printf("Get Event Count : %d\n", get_event_count);
-    for (int i = 0; i < get_event_count; i++) {
+    printf("Get Event Count : %d\n", event_count);
+    for (int i = 0; i < event_count; i++) {
       // Server Socket Event
-      if (client_events[i].data.fd == server_socket) {
-        uint32_t what = client_events[i].events;
+      if (events[i].data.fd == server_socket) {
+        uint32_t what = events[i].events;
         printf("Start Server FD Event (%u)\n", what);
 
-        if (what &= EPOLLIN) {
+        if (what & EPOLLIN == EPOLLIN) {
           int client_socket;
           struct sockaddr_in client_addr;
           socklen_t client_addr_size;
@@ -95,23 +90,23 @@ int main(int argc, char **argv) {
           struct epoll_event client_event;
           client_event.events = EPOLLIN | EPOLLOUT;
           client_event.data.fd = client_socket;
-          epoll_ctl(server_epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
-        } else if (what &= EPOLLOUT) {
+          epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
+        } else if (what & EPOLLOUT == EPOLLOUT) {
         }
 
         printf("End Server FD Event\n");
       } else { // Client Socket Event
-        uint32_t what = client_events[i].events;
+        uint32_t what = events[i].events;
         printf("Start Client FD Event (%u)\n", what);
 
         if (what & EPOLLIN == EPOLLIN) {
           memset(buff_rcv, 0x00, BUFF_SIZE);
-          recv(client_events[i].data.fd, buff_rcv, BUFF_SIZE, 0);
+          recv(events[i].data.fd, buff_rcv, BUFF_SIZE, 0);
           printf("Recv Data : %s\n", buff_rcv);
 
           memset(buff_snd, 0x00, BUFF_SIZE);
           snprintf(buff_snd, BUFF_SIZE, "Recv Data Is %s\n", buff_rcv);
-          send(client_events[i].data.fd, buff_snd, BUFF_SIZE, 0);
+          send(events[i].data.fd, buff_snd, BUFF_SIZE, 0);
         } else if (what & EPOLLOUT == EPOLLOUT) {
           sleep(1);
         }

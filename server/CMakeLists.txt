@@ -1,1 +1,1 @@
-ADD_EXECUTABLE(server main.cpp)
+add_executable(server main.cpp)
